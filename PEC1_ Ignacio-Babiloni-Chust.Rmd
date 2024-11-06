@@ -1,0 +1,141 @@
+---
+title: "PEC1 Análisis de datos ómicos"
+author: "Ignacio Babiloni Chust"
+date: "2024-30-10"
+output:
+  word_document: default
+  pdf_document: default
+  html_document: default
+---
+```{r}
+#Generamos el entorno de trabajo y definimos todas las variables que queremos. 
+datoshuman_cachexia <- read.csv("human_cachexia.csv", header = TRUE)
+dim(datoshuman_cachexia)  # Muestra las dimensiones (número de filas y columnas)
+str(datoshuman_cachexia)  # Muestra la estructura, incluyendo el tipo de datos en cada columna
+head(datoshuman_cachexia)  # Muestra las primeras filas para ver cómo están organizados los datos
+class(datoshuman_cachexia)
+colnames(datoshuman_cachexia)
+nombres_metadatos<-colnames(datoshuman_cachexia)
+nombres_metadatos
+class(nombres_metadatos)#Con esto vemos que son caracter
+colData <- datoshuman_cachexia[, 1:2]  # Las dos primeras columnas que contienen la ID y condicion
+colnames(colData) <- c("PatientID", "Muscle.loss")
+patientID <- datoshuman_cachexia[, 1] 
+patientID #Con esto podemos tambien almacenar la ID del paciente, en caso de que en analisis posteriores haya algo destacable en alguno de ellos. 
+
+
+library(BiocGenerics)
+library(SummarizedExperiment)#Con esto llamamos a la libreria que queremos emplear. 
+help("SummarizedExperiment")
+colData <- datoshuman_cachexia[, 1:2]  # Las dos primeras columnas, la ID del paciente y el estado (CTRL o enfermo)
+colData
+class(colData)
+colnames(colData) <- c("PatientID", "Muscle.loss")  # Renombramos las columnas
+colnames
+showMethods(colnames)
+
+expression_data <- datoshuman_cachexia[, 3:ncol(datoshuman_cachexia)]
+expression_data <- as.data.frame(lapply(expression_data, as.numeric))
+expression_data# Convertimos las columnas que quedan en datos de expresión, sin embargo, tenemos que transponerlo. 
+class(expression_data)
+expression_data <- t(expression_data)
+expression_data 
+
+se <- SummarizedExperiment(
+    assays = list(counts = as.matrix(expression_data)),
+    colData = DataFrame(colData)
+)
+se
+head(se)
+colData(se)
+metadata(se)
+```
+
+
+```{r}
+#Para la exploración de los datos
+# 1º Seleccionamos los datos de enfermos y control según tal y como están ordenados en las filas, excluyendo la ID patient y el estado (ctrl y enfermo). 
+enfermo <- datoshuman_cachexia[2:48, -c(1, 2)]
+control <- datoshuman_cachexia[49:78, -c(1, 2)]
+enfermo
+control
+media_enfermo <- colMeans(enfermo, na.rm = TRUE)#Calculamos la media de cada variable para ambos grupos.
+media_control <- colMeans(control, na.rm = TRUE)
+cambios <- abs(media_enfermo - media_control)# Calculamos el cambio absoluto entre las medias de cada grupo
+
+# 2º Identificamos con el nombre la variable con el mayor cambio
+variable_mayor_cambio <- names(cambios)[which.max(cambios)]
+valor_mayor_cambio <- max(cambios)
+
+cat("La variable con el mayor cambio es:", variable_mayor_cambio, "con un cambio de:", valor_mayor_cambio, "\n")
+
+#La variable con el mayor cambio es: Creatinine 
+
+creatinine_enfermo <- datoshuman_cachexia[2:48, "Creatinine"]
+creatinine_control <- datoshuman_cachexia[49:77, "Creatinine"]
+creatinine_enfermo
+creatinine_control
+
+library(dbplyr)
+shapiro.test(creatinine_control)
+shapiro.test(creatinine_enfermo)
+
+resultados_ttest <- t.test(creatinine_enfermo, creatinine_control)
+
+resultados_ttest
+head(datoshuman_cachexia)
+mean(creatinine_enfermo)
+mean(creatinine_control)
+#Vamos a graficar estos dos grupos para ver la diferencia de forma visual
+datos_creatinina <- data.frame(
+  Creatinine = c(creatinine_enfermo, creatinine_control),
+  Grupo = rep(c("Enfermo", "Control"), c(length(creatinine_enfermo), length(creatinine_control)))
+)
+ggplot(datos_creatinina, aes(x = Grupo, y = Creatinine, fill = Grupo)) +
+  geom_boxplot(alpha = 0.7, width = 0.5) +
+  labs(title = "Boxplot de Creatinina en Enfermos y Controles",
+       x = "Grupo", y = "Creatinine") +
+  scale_fill_manual(values = c("blue", "orange")) +
+  theme_minimal()
+
+```
+
+```{r}
+medias_enfermos <- colMeans(enfermo[, -c(1, 2)], na.rm = TRUE)
+medias_controles <- colMeans(control[, -c(1, 2)], na.rm = TRUE)
+diferencias <- abs(medias_enfermos - medias_controles)
+variables_cambio <- sort(diferencias, decreasing = TRUE)
+Las_tres_variables <- names(variables_cambio)[1:3]
+Las_tres_variables
+#Vamos a ver si hay cambios significativos en ellos. 
+Hippurate_enfermo <- datoshuman_cachexia[2:48, "Hippurate"]
+Hippurate_control <- datoshuman_cachexia[49:77, "Hippurate"]
+Hippurate_enfermo
+Hippurate_control
+mean(Hippurate_control)
+mean(Hippurate_enfermo)
+
+library(dbplyr)
+shapiro.test(Hippurate_control)
+shapiro.test(Hippurate_enfermo)
+#Como vemos que pasa la normalidad
+Test_Hippurate <- t.test(Hippurate_control, Hippurate_enfermo)
+Test_Hippurate
+
+
+#Vamos a ver que pasa con el citrato. 
+Citrate_enfermo <- datoshuman_cachexia[2:48, "Citrate"]
+Citrate_control <- datoshuman_cachexia[49:77, "Citrate"]
+Citrate_enfermo
+Citrate_control
+mean(Citrate_control)
+mean(Citrate_enfermo)
+shapiro.test(Citrate_control)
+shapiro.test(Citrate_enfermo)
+Test_Citrate <- t.test(Citrate_enfermo, Citrate_control)
+Test_Citrate
+```
+
+
+
+

@@ -87,6 +87,7 @@ head(datoshuman_cachexia)
 mean(creatinine_enfermo)
 mean(creatinine_control)
 #Vamos a graficar estos dos grupos para ver la diferencia de forma visual
+library(ggplot2)
 datos_creatinina <- data.frame(
   Creatinine = c(creatinine_enfermo, creatinine_control),
   Grupo = rep(c("Enfermo", "Control"), c(length(creatinine_enfermo), length(creatinine_control)))
